@@ -70,7 +70,7 @@ SINT32 QSConJaques(TPosicion * pPos, SINT32 s32Alfa, SINT32 s32Beta, SINT32 s32P
 	if (pPos->u8Cincuenta > 100)
 		return(TABLAS);
 	if (SegundaRepeticion(pPos))
-		return(Bus_EvalRepe());
+		return(TABLAS);
 	if (InsuficienteMaterial(pPos))
 		return(TABLAS);
 	if (s32Ply > MAX_PLIES)

@@ -29,11 +29,6 @@ static INLINE void Bus_ActualizarPV(TJugada jug, SINT32 s32Ply)
 	memcpy(&(dbDatosBusqueda.ajugPV[s32Ply][1]), &(dbDatosBusqueda.ajugPV[s32Ply + 1][0]), sizeof(TJugada) * (MAX_PLIES - s32Ply));
 	dbDatosBusqueda.ajugPV[s32Ply + 1][0] = JUGADA_NULA;
 }
-static INLINE int Bus_EvalRepe(void)
-{
-	const int i = dbDatosBusqueda.u32NumNodos % 2;
-	return i - 1;
-}
 
 /*
  *

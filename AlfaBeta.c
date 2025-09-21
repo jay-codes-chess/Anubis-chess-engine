@@ -172,7 +172,7 @@ SINT32 AlfaBeta(TPosicion * pPos, SINT32 s32Alfa, SINT32 s32Beta, SINT32 s32Prof
 	if (pPos->u8Cincuenta > 100)
 		return(TABLAS);
 	if (SegundaRepeticion(pPos))
-		return(Bus_EvalRepe());
+		return(TABLAS);
 	if (InsuficienteMaterial(pPos))
 		return(TABLAS);
 	if (s32Ply >= MAX_PLIES - 1)
@@ -244,12 +244,14 @@ SINT32 AlfaBeta(TPosicion * pPos, SINT32 s32Alfa, SINT32 s32Beta, SINT32 s32Prof
 		#define PODA_HASH_BETA_MULT_DIF 0		// Multiplicador por cada diferencia de profundidad adicional en beta
 		#define PODA_HASH_BETA_MULT_PROF 13		// Multiplicador por cada profundidad adicional en beta
 
-		#define PODA_HASH_ALFA_BASE 390			// Diferencia base contra alfa
-		#define PODA_HASH_ALFA_MULT_DIF 30		// Multiplicador por cada diferencia de profundidad adicional en alfa
-		#define PODA_HASH_ALFA_MULT_PROF 48		// Multiplicador por cada profundidad adicional en alfa
+		#define PODA_HASH_ALFA_BASE 99			// Diferencia base contra alfa
+		#define PODA_HASH_ALFA_MULT_DIF 111		// Multiplicador por cada diferencia de profundidad adicional en alfa
+		#define PODA_HASH_ALFA_MULT_PROF -10	// Multiplicador por cada profundidad adicional en alfa
+		#define PODA_HASH_ALFA_HAY_JH -17		// Multiplicador cuando no hay jugada hash
 
 		//
 		// Poda hash beta
+		// Último ajuste: 3.03
 		//
 		if (s32ProfHash >= s32Prof - PODA_HASH_PROF_DIF
 			&& (iBoundHash == BOUND_LOWER || iBoundHash == BOUND_EXACTO)
@@ -262,12 +264,13 @@ SINT32 AlfaBeta(TPosicion * pPos, SINT32 s32Alfa, SINT32 s32Beta, SINT32 s32Prof
 
 		//
 		// Poda hash alfa
+		// Último ajuste: 3.04
 		//
 		if (s32ProfHash >= s32Prof - PODA_HASH_PROF_DIF
 			&& (iBoundHash == BOUND_EXACTO || iBoundHash == BOUND_UPPER)
 			&& abs(s32Alfa) < VICTORIA
 			&& abs(s32EvalHash) < VICTORIA
-			&& s32EvalHash < s32Alfa - PODA_HASH_ALFA_BASE - PODA_HASH_ALFA_MULT_DIF * max(s32Prof - s32ProfHash, 1) - PODA_HASH_ALFA_MULT_PROF * s32Prof)
+			&& s32EvalHash < s32Alfa - PODA_HASH_ALFA_BASE - PODA_HASH_ALFA_MULT_DIF * max(s32Prof - s32ProfHash, 1) - PODA_HASH_ALFA_MULT_PROF * s32Prof - PODA_HASH_ALFA_HAY_JH * (jugHash.u32Mov == 0))
 		{
 			return(s32Alfa); // OJO: puedo devolver menos, para hacerlo más fail soft (entre eval hash y alfa)
 		}
@@ -355,23 +358,39 @@ SINT32 AlfaBeta(TPosicion * pPos, SINT32 s32Alfa, SINT32 s32Beta, SINT32 s32Prof
 	}
 
 	//
-	// Fail high reductions
-	//
-	#if defined(RED_FH)
-		if (bEsCutNode && pPos->s32Eval > s32Beta + pPos->s32EvalAmenaza)
-			s32Prof--;
-	#endif
-
-	//
 	// IIR
 	// 
 	#if defined(BUS_IIR_CUT)
 		if (bEsCutNode && s32Prof >= 4 && Jug_GetEsNula(jugHash) && !pPos->u32MovExclu)
 			s32Prof -= BUS_IIR_CUT;
+	#elif defined(BUS_IIR_CUT_JC)
+		if (bEsCutNode
+			&& !pPos->u32MovExclu
+			&& Jug_GetEsNula(jugHash)
+			&& s32Prof >= 3
+			&& pPos->s32Eval >= s32Beta
+			&& abs(s32Alfa) < VICTORIA
+			&& abs(s32Beta) < VICTORIA
+			&& abs(pPos->s32Eval) < VICTORIA)
+		{
+			s32Prof -= BUS_IIR_CUT_JC;
+		}
 	#endif
 	#if defined(BUS_IIR_ALL)
 		if (!bEsCutNode && s32Prof >= 4 && Jug_GetEsNula(jugHash) && !pPos->u32MovExclu)
 			s32Prof -= BUS_IIR_ALL;
+	#elif defined(BUS_IIR_ALL_JC)
+		if (bEsCutNode
+			&& !pPos->u32MovExclu
+			&& Jug_GetEsNula(jugHash)
+			&& s32Prof >= 4
+			&& pPos->s32Eval <= s32Alfa
+			&& abs(s32Alfa) < VICTORIA
+			&& abs(s32Beta) < VICTORIA
+			&& abs(pPos->s32Eval) < VICTORIA)
+		{
+			s32Prof -= BUS_IIR_ALL_JC;
+		}
 	#endif
 
 	//
@@ -878,7 +897,7 @@ SINT32 AlfaBetaPV(TPosicion * pPos, SINT32 s32Alfa, SINT32 s32Beta, SINT32 s32Pr
 	if (pPos->u8Cincuenta > 100)
 		return(TABLAS);
 	if (SegundaRepeticion(pPos))
-		return(Bus_EvalRepe());
+		return(TABLAS);
 	if (InsuficienteMaterial(pPos))
 		return(TABLAS);
 	if (s32Ply >= MAX_PLIES - 1)
