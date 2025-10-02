@@ -243,6 +243,7 @@ SINT32 AlfaBeta(TPosicion * pPos, SINT32 s32Alfa, SINT32 s32Beta, SINT32 s32Prof
 		#define PODA_HASH_BETA_BASE 185			// Diferencia base contra beta
 		#define PODA_HASH_BETA_MULT_DIF 0		// Multiplicador por cada diferencia de profundidad adicional en beta
 		#define PODA_HASH_BETA_MULT_PROF 13		// Multiplicador por cada profundidad adicional en beta
+		#define PODA_HASH_BETA_HAY_JH 0			// Multiplicador cuando sí hay jugada hash
 
 		#define PODA_HASH_ALFA_BASE 99			// Diferencia base contra alfa
 		#define PODA_HASH_ALFA_MULT_DIF 111		// Multiplicador por cada diferencia de profundidad adicional en alfa
@@ -251,13 +252,13 @@ SINT32 AlfaBeta(TPosicion * pPos, SINT32 s32Alfa, SINT32 s32Beta, SINT32 s32Prof
 
 		//
 		// Poda hash beta
-		// Último ajuste: 3.03
+		// Último ajuste: 3.05
 		//
 		if (s32ProfHash >= s32Prof - PODA_HASH_PROF_DIF
 			&& (iBoundHash == BOUND_LOWER || iBoundHash == BOUND_EXACTO)
 			&& abs(s32Beta) < VICTORIA
 			&& abs(s32EvalHash) < VICTORIA
-			&& s32EvalHash > s32Beta + PODA_HASH_BETA_BASE + PODA_HASH_BETA_MULT_DIF * max(s32Prof - s32ProfHash, 1) + PODA_HASH_BETA_MULT_PROF * s32Prof)
+			&& s32EvalHash > s32Beta + PODA_HASH_BETA_BASE + PODA_HASH_BETA_MULT_DIF * max(s32Prof - s32ProfHash, 1) + PODA_HASH_BETA_MULT_PROF * s32Prof + PODA_HASH_BETA_HAY_JH * (jugHash.u32Mov != 0))
 		{
 			return(s32Beta); // OJO: puedo devolver más, para hacerlo más fail soft (entre beta y eval hash)
 		}

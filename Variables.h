@@ -98,21 +98,3 @@ extern UINT32			u32MaxPiezasTB;
 // Comunicación con el thread del motor
 extern volatile UINT32        u32UltComandoEnviado;
 extern volatile TComandoMotor acmListaComandos[MAX_COMANDOS];
-
-//
-// Parametrización para banco de pruebas
-//
-#if defined(MODO_PARAM)
-	//
-	// Podas basadas en hash
-	//
-	extern int param_PODA_HASH_PROF_DIF;		// Máxima diferencia permitida de profundidad entre acutal y hash
-
-	extern int param_PODA_HASH_BETA_BASE;		// Diferencia base contra beta
-	extern int param_PODA_HASH_BETA_MULT_DIF;	// Multiplicador por cada diferencia de profundidad adicional en beta
-	extern int param_PODA_HASH_BETA_MULT_PROF;	// Multiplicador por cada profundidad adicional en beta
-
-	extern int param_PODA_HASH_ALFA_BASE;		// Diferencia base contra alfa
-	extern int param_PODA_HASH_ALFA_MULT_DIF;	// Multiplicador por cada diferencia de profundidad adicional en alfa
-	extern int param_PODA_HASH_ALFA_MULT_PROF;	// Multiplicador por cada profundidad adicional en alfa
-#endif
