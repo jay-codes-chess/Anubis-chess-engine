@@ -289,12 +289,28 @@ static int parse_anubis_line(const char *line, char *bestmove_out, int bm_size) 
 /* === FEN generation === */
 
 static void fen_from_startpos_moves(char *fen, int fen_size, int move_count, char moves[][8]) {
-    /* Simple board: 64 squares, a1=0, h1=7, a8=56, h8=63 */
+    /* Board: a1=0, h1=7, a8=56, h8=63 */
+    /* Start FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" */
+    /* Rank 8 (a8-h8): black pieces, Rank 1 (a1-h1): white pieces */
     char board[64];
-    const char *start = "rnbqkbnrpppppppp................................PPPPPPPPRNBQKBNR";
-    for (int i = 0; i < 64; i++) board[i] = start[i];
+    /* Fill board in a1-first order */
+    const char *rank8 = "rnbqkbnr";  /* Black back rank */
+    const char *rank7 = "pppppppp";  /* Black pawns */
+    const char *rank2 = "PPPPPPPP";  /* White pawns */
+    const char *rank1 = "RNBQKBNR";  /* White back rank */
     
-    int turn = 0; /* white */
+    for (int f = 0; f < 8; f++) {
+        board[0*8 + f] = rank1[f];   /* a1-h1 */
+        board[1*8 + f] = rank2[f];   /* a2-h2 */
+        board[2*8 + f] = '.';        /* a3-h3 */
+        board[3*8 + f] = '.';        /* a4-h4 */
+        board[4*8 + f] = '.';        /* a5-h5 */
+        board[5*8 + f] = '.';        /* a6-h6 */
+        board[6*8 + f] = rank7[f];   /* a7-h7 */
+        board[7*8 + f] = rank8[f];   /* a8-h8 */
+    }
+    
+    int turn = 0; /* 0=white */
     int castling[4] = {1, 1, 1, 1}; /* K Q k q */
     int ep = -1;
     int halfmove = 0;
@@ -308,7 +324,7 @@ static void fen_from_startpos_moves(char *fen, int fen_size, int move_count, cha
         int to_row = uci[3] - '1';
         int from = from_row * 8 + from_col;
         int to = to_row * 8 + to_col;
-        char promo = uci[4] ? uci[4] : 0;
+        char promo = (uci[4] && uci[4] != ' ') ? uci[4] : 0;
         
         char piece = board[from];
         char captured = board[to];
@@ -317,52 +333,48 @@ static void fen_from_startpos_moves(char *fen, int fen_size, int move_count, cha
         board[to] = piece;
         board[from] = '.';
         
-        /* Handle special moves */
-        if (piece == 'K') {
-            castling[0] = castling[1] = 0; /* White can't castle */
-            /* Castling */
-            if (from == 4 && to == 6) { board[5] = 'R'; board[7] = '.'; } /* e1g1 */
-            if (from == 4 && to == 2) { board[3] = 'R'; board[0] = '.'; } /* e1c1 */
+        /* En passant capture */
+        if (piece == 'P' && captured == '.' && from_col != to_col) {
+            board[to - 8] = '.'; /* captured black pawn */
         }
-        if (piece == 'k') {
-            castling[2] = castling[3] = 0; /* Black can't castle */
-            if (from == 60 && to == 62) { board[61] = 'r'; board[63] = '.'; }
-            if (from == 60 && to == 58) { board[59] = 'r'; board[56] = '.'; }
-        }
-        if (piece == 'R') {
-            if (from == 0) castling[1] = 0; /* a1 moved */
-            if (from == 7) castling[0] = 0; /* h1 moved */
-        }
-        if (piece == 'r') {
-            if (from == 56) castling[3] = 0;
-            if (from == 63) castling[2] = 0;
+        if (piece == 'p' && captured == '.' && from_col != to_col) {
+            board[to + 8] = '.'; /* captured white pawn */
         }
         
-        /* En passant */
+        /* Set en passant square */
         if (piece == 'P' && from_row == 1 && to_row == 3) ep = to;
         else if (piece == 'p' && from_row == 6 && to_row == 4) ep = to;
-        else if (piece == 'P' && to == ep) board[to - 8] = '.'; /* EP capture */
-        else if (piece == 'p' && to == ep) board[to + 8] = '.';
         else ep = -1;
         
         /* Promotion */
         if (promo) {
-            if (turn == 0) board[to] = promo & ~32; /* uppercase */
-            else board[to] = promo | 32; /* lowercase */
+            board[to] = (turn == 0) ? (promo & ~32) : (promo | 32);
         }
         
-        /* Rook captured on starting square */
+        /* Update castling rights */
+        if (piece == 'K') { castling[0] = 0; castling[1] = 0; }
+        if (piece == 'k') { castling[2] = 0; castling[3] = 0; }
+        if (piece == 'R' && from == 0) castling[1] = 0; /* a1 */
+        if (piece == 'R' && from == 7) castling[0] = 0; /* h1 */
+        if (piece == 'r' && from == 56) castling[3] = 0; /* a8 */
+        if (piece == 'r' && from == 63) castling[2] = 0; /* h8 */
         if (captured == 'R' && to == 0) castling[1] = 0;
         if (captured == 'R' && to == 7) castling[0] = 0;
         if (captured == 'r' && to == 56) castling[3] = 0;
         if (captured == 'r' && to == 63) castling[2] = 0;
+        
+        /* Castling moves */
+        if (piece == 'K' && from == 4 && to == 6) { board[5] = 'R'; board[7] = '.'; } /* O-O */
+        if (piece == 'K' && from == 4 && to == 2) { board[3] = 'R'; board[0] = '.'; } /* O-O-O */
+        if (piece == 'k' && from == 60 && to == 62) { board[61] = 'r'; board[63] = '.'; }
+        if (piece == 'k' && from == 60 && to == 58) { board[59] = 'r'; board[56] = '.'; }
         
         halfmove = (piece == 'P' || piece == 'p' || captured != '.') ? 0 : halfmove + 1;
         if (turn == 1) fullmove++;
         turn = 1 - turn;
     }
     
-    /* Build FEN */
+    /* Build FEN string */
     int pos = 0;
     for (int r = 7; r >= 0; r--) {
         int empty = 0;
@@ -383,34 +395,24 @@ static void fen_from_startpos_moves(char *fen, int fen_size, int move_count, cha
     fen[pos++] = (turn == 0) ? 'w' : 'b';
     fen[pos++] = ' ';
     
-    if (castling[0]) fen[pos++] = 'K';
-    if (castling[1]) fen[pos++] = 'Q';
-    if (castling[2]) fen[pos++] = 'k';
-    if (castling[3]) fen[pos++] = 'q';
-    if (!castling[0] && !castling[1] && !castling[2] && !castling[3])
-        fen[pos++] = '-';
+    int any_castling = 0;
+    if (castling[0]) { fen[pos++] = 'K'; any_castling = 1; }
+    if (castling[1]) { fen[pos++] = 'Q'; any_castling = 1; }
+    if (castling[2]) { fen[pos++] = 'k'; any_castling = 1; }
+    if (castling[3]) { fen[pos++] = 'q'; any_castling = 1; }
+    if (!any_castling) fen[pos++] = '-';
     
-    pos += snprintf(fen + pos, fen_size - pos, " %d %d %d", 
-                    ep >= 0 ? ep : -1, halfmove, fullmove);
-    /* Fix en passant display */
+    /* En passant */
     if (ep >= 0) {
-        /* Replace the -1 or square number with algebraic en passant */
-        char *ep_start = strrchr(fen, ' ');
-        char *ep_start2 = ep_start;
-        while (ep_start2 > fen && *(ep_start2-1) != ' ') ep_start2--;
-        if (ep >= 0) {
-            char ep_str[3];
-            ep_str[0] = 'a' + (ep % 8);
-            ep_str[1] = '1' + (ep / 8);
-            ep_str[2] = '\0';
-            /* Replace digits with ep square */
-            int ep_offset = (int)(ep_start2 - fen);
-            snprintf(fen + ep_offset, fen_size - ep_offset, "%s %d %d", 
-                     ep_str, halfmove, fullmove);
-        }
+        pos += snprintf(fen + pos, fen_size - pos, " %c%c",
+                        'a' + (ep % 8), '1' + (ep / 8));
+    } else {
+        fen[pos++] = ' ';
+        fen[pos++] = '-';
     }
     
-    fen[fen_size - 1] = '\0';
+    pos += snprintf(fen + pos, fen_size - pos, " %d %d", halfmove, fullmove);
+    fen[pos] = '\0';
 }
 
 static void send_position(void) {
@@ -580,54 +582,49 @@ static void handle_uci(const char *line) {
 
 int main(int argc, char *argv[]) {
     setvbuf(stdout, NULL, _IONBF, 0);
-    setvbuf(stdin, NULL, _IONBF, 0);
     
     /* Start engine */
     engine_init();
     
-    /* Main loop */
-    char engine_line[MAX_LINE];
-    char bestmove_str[MAX_LINE] = "";
-    int waiting_for_bestmove = 0;
+    /* Main loop: block on stdin, process engine output after 'go' */
+    char uci_line[MAX_LINE];
     
-    while (1) {
-        /* Check engine output */
-        int n = wb_read_line(engine_line, MAX_LINE);
-        if (n > 0) {
-            int result = parse_anubis_line(engine_line, bestmove_str, MAX_LINE);
-            if (result == 1) {
-                /* bestmove found */
-                output_uci("%s", bestmove_str);
-                waiting_for_bestmove = 0;
+    while (fgets(uci_line, MAX_LINE, stdin)) {
+        /* Strip newline */
+        size_t len = strlen(uci_line);
+        while (len > 0 && (uci_line[len-1] == '\n' || uci_line[len-1] == '\r'))
+            uci_line[--len] = '\0';
+        
+        if (len == 0) continue;
+        
+        handle_uci(uci_line);
+        
+        /* After 'go', wait for bestmove from engine */
+        if (strncmp(uci_line, "go", 2) == 0) {
+            char engine_line[MAX_LINE];
+            char bestmove_str[MAX_LINE] = "";
+            
+            while (1) {
+                int n = wb_read_line(engine_line, MAX_LINE);
+                if (n <= 0) { Sleep(10); continue; }
+                
+                int result = parse_anubis_line(engine_line, bestmove_str, MAX_LINE);
+                if (result == 1) {
+                    /* bestmove found */
+                    output_uci("%s", bestmove_str);
+                    break;
+                }
             }
-        } else if (n < 0) {
-            break; /* Engine died */
         }
         
-        /* Check UCI input (non-blocking via PeekNamedPipe for pipe, or select) */
-        if (!waiting_for_bestmove) {
-            HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
-            DWORD avail_in = 0;
-            
-            /* Try PeekNamedPipe first (works when stdin is a pipe from GUI) */
-            if (PeekNamedPipe(hStdin, NULL, 0, NULL, &avail_in, NULL) && avail_in > 0) {
-                char uci_line[MAX_LINE];
-                if (fgets(uci_line, MAX_LINE, stdin)) {
-                    size_t len = strlen(uci_line);
-                    while (len > 0 && (uci_line[len-1] == '\n' || uci_line[len-1] == '\r'))
-                        uci_line[--len] = '\0';
-                    handle_uci(uci_line);
-                    if (strncmp(uci_line, "go", 2) == 0)
-                        waiting_for_bestmove = 1;
-                }
-            } else {
-                /* Console input - poll with a short timeout */
-                Sleep(10);
-            }
-        } else {
-            Sleep(1);
-        }
+        if (strcmp(uci_line, "quit") == 0) break;
     }
     
+    /* Cleanup */
+    wb_send("quit");
+    Sleep(200);
+    TerminateProcess(engine_pi.hProcess, 0);
+    CloseHandle(engine_pi.hProcess);
+    CloseHandle(engine_pi.hThread);
     return 0;
 }
